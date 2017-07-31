@@ -1,35 +1,41 @@
-// Developer : ming
-// platform : Ubuntu 16.04.2
-// Reference : https://stackoverflow.com/questions/6767296/how-to-get-local-ip-and-mac-address-c
-
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
-#include <stdio.h>
-#include <string.h>
+#include <netinet/in.h>
+#include <net/if.h> // ifreq
+#include <unistd.h> // close
+#include <arpa/inet.h>
 
-void get_mac(unsigned char MAC_str[13])
+int main()
 {
-	#define HWADDR_len 6
-	int s,i;
+	int fd;
 	struct ifreq ifr;
+	unsigned char *mac;
 	
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-	strcpy(ifr.ifr_name, "ens33");
-	ioctl(s, SIOCGIFHWADDR, &ifr);
-	for (i=0; i<HWADDR_len; i++)
-		sprintf(&MAC_str[i*2],"%02X",((unsigned char*)ifr.ifr_hwaddr.sa_data)[i]);
-	MAC_str[12]='\0';
-}
+	char iface[] = "ens33";
 
-int main(int argc, char *argv[])
-{
-	unsigned char mac[13];
-	int i;
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	get_mac(mac);
-	puts(mac);
+	//Type of address to retrieve - IPv4 IP address
+	ifr.ifr_addr.sa_family = AF_INET;
 
-return 0;
+	//Copy the interface name in the ifreq structure
+	strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);
+
+	ioctl(fd, SIOCGIFADDR, &ifr);
+
+	close(fd);
+
+	mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+
+
+	//display mac address
+	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+ 
+	//display result
+	printf("%s - %s\n" , iface , inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr) );
+
+	return 0;
 }
