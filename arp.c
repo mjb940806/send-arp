@@ -19,11 +19,10 @@
 #include <net/if_arp.h>
 #include <net/ethernet.h>
 
-/* ARP Header, (assuming Ethernet+IPv4)              */ 
+/* ARP Header, (assuming Ethernet+IPv4)            */ 
 #define ETHERNET 1
-#define ARP_REQUEST 1     /* ARP Request             */ 
-#define ARP_REPLY 2       /* ARP Reply               */ 
-
+#define ARP_REQUEST 1   /* ARP Request             */ 
+#define ARP_REPLY 2     /* ARP Reply               */ 
 typedef struct arpheader { 
     u_int16_t htype;    /* Hardware Type           */ 
     u_int16_t ptype;    /* Protocol Type           */ 
@@ -34,7 +33,7 @@ typedef struct arpheader {
     u_char spa[4];      /* Sender IP address       */ 
     u_char tha[6];      /* Target hardware address */ 
     u_char tpa[4];      /* Target IP address       */ 
-}arphdr_t; 
+} arphdr_t; 
 
 int main(int argc, char *argv[])
 {
@@ -42,6 +41,7 @@ int main(int argc, char *argv[])
 	struct ifreq ifr;
 	unsigned char *attacker_mac, *attacker_ip;
 	char *dev, *sender_ip, *target_ip;
+	
 	pcap_t *handle;
 	char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -70,10 +70,10 @@ int main(int argc, char *argv[])
 
 	attacker_mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
 
-	/* display mac address */
+	/* Display mac address */
 	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , attacker_mac[0], attacker_mac[1], 			attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
  
-	/* display result */
+	/* Display ip address */
 	attacker_ip = inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr);
 	printf("%s : %s\n" , dev , attacker_ip );
 
@@ -83,13 +83,13 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	/* Ethernet packet */
+	/* Make Ethernet packet */
 	ethhdr = (struct ether_header *)packet;
 	ethhdr->ether_type = ntohs(ETHERTYPE_ARP);
 	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_dhost[i] = '\xff';
 	for(int j=0;j<ETH_ALEN;j++) ethhdr->ether_shost[j] = attacker_mac[j];
 	
-	/* ARP packet */
+	/* Make ARP packet */
 	arpheader = (struct arpheader *)(packet+14);
 	arpheader->htype = ntohs(ETHERNET);
 	arpheader->ptype = ntohs(ETHERTYPE_IP);
@@ -100,6 +100,15 @@ int main(int argc, char *argv[])
 	memcpy(arpheader->spa, attacker_ip, 4);
 	memcpy(arpheader->tha, "\x00\x00\x00\x00\x00\x00",6);
 	memcpy(arpheader->tpa, sender_ip, 4);
-	
+
+	/* Send ARP request */
+	pcap_sendpacket(handle, packet, 42);	
+	/* int pcap_sendpacket(pcap_t *p, const u_char *buf, int size);
+	 * sends a raw packet through the network interface.
+	 * returns 0 on success and -1 on failure.
+	 * If -1 is returned, pcap_geterr() or pcap_perror() may be called 
+	 * with p as an argument to fetch or display the error text.
+	 */
+
 	return 0;
 }
