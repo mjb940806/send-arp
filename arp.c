@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 {
 	int fd;
 	struct ifreq ifr;
-	unsigned char *mac;
+	unsigned char *attacker_mac, *attacker_ip;
 	char *dev, *sender_ip, *target_ip;
 	pcap_t *handle;
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -68,13 +68,14 @@ int main(int argc, char *argv[])
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 
-	mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+	attacker_mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
 
 	/* display mac address */
-	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , attacker_mac[0], attacker_mac[1], 			attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
  
 	/* display result */
-	printf("%s : %s\n" , dev , inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr) );
+	attacker_ip = inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr);
+	printf("%s : %s\n" , dev , attacker_ip );
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf))==NULL) {
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
 	ethhdr = (struct ether_header *)packet;
 	ethhdr->ether_type = ntohs(ETHERTYPE_ARP);
 	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_dhost[i] = '\xff';
-	for(int j=0;j<ETH_ALEN;j++) ethhdr->ether_shost[j] = mac[j];
+	for(int j=0;j<ETH_ALEN;j++) ethhdr->ether_shost[j] = attacker_mac[j];
 	
 	/* ARP packet */
 	arpheader = (struct arpheader *)(packet+14);
@@ -95,10 +96,10 @@ int main(int argc, char *argv[])
 	arpheader->hlen = 6;
 	arpheader->plen = 4;
 	arpheader->oper = ntohs(ARP_REQUEST);
-	memcpy(arpheader->sha, mac, 6);
-	// Sender IP address
+	memcpy(arpheader->sha, attacker_mac, 6);
+	memcpy(arpheader->spa, attacker_ip, 4);
 	memcpy(arpheader->tha, "\x00\x00\x00\x00\x00\x00",6);
-	// Target ip address
+	memcpy(arpheader->tpa, sender_ip, 4);
 	
 	return 0;
 }
