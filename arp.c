@@ -16,23 +16,25 @@
 #include <arpa/inet.h>
 #include <pcap.h>
 #include <netinet/if_ether.h>
+#include <net/if_arp.h>
 #include <net/ethernet.h>
 
-/* ARP Header, (assuming Ethernet+IPv4)            */ 
-#define ARP_REQUEST 1   /* ARP Request             */ 
-#define ARP_REPLY 2     /* ARP Reply               */ 
+/* ARP Header, (assuming Ethernet+IPv4)              */ 
+#define ETHERNET 1
+#define ARP_REQUEST 1     /* ARP Request             */ 
+#define ARP_REPLY 2       /* ARP Reply               */ 
 
-//typedef struct arphdr { 
-//    u_int16_t htype;    /* Hardware Type           */ 
-//    u_int16_t ptype;    /* Protocol Type           */ 
-//    u_char hlen;        /* Hardware Address Length */ 
-//    u_char plen;        /* Protocol Address Length */ 
-//    u_int16_t oper;     /* Operation Code          */ 
-//    u_char sha[6];      /* Sender hardware address */ 
-//    u_char spa[4];      /* Sender IP address       */ 
-//    u_char tha[6];      /* Target hardware address */ 
-//    u_char tpa[4];      /* Target IP address       */ 
-//}arphdr_t; 
+typedef struct arpheader { 
+    u_int16_t htype;    /* Hardware Type           */ 
+    u_int16_t ptype;    /* Protocol Type           */ 
+    u_char hlen;        /* Hardware Address Length */ 
+    u_char plen;        /* Protocol Address Length */ 
+    u_int16_t oper;     /* Operation Code          */ 
+    u_char sha[6];      /* Sender hardware address */ 
+    u_char spa[4];      /* Sender IP address       */ 
+    u_char tha[6];      /* Target hardware address */ 
+    u_char tpa[4];      /* Target IP address       */ 
+}arphdr_t; 
 
 int main(int argc, char *argv[])
 {
@@ -45,6 +47,8 @@ int main(int argc, char *argv[])
 
 	struct ether_header *ethhdr;
 	char packet[100];
+
+	arphdr_t *arpheader = NULL;
 
 	if (argc != 4) {
 		printf("input needed: 1. dev 2. sender_ip 3. target_ip \n");
@@ -70,7 +74,7 @@ int main(int argc, char *argv[])
 	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
  
 	/* display result */
-	printf("%s - %s\n" , dev , inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr) );
+	printf("%s : %s\n" , dev , inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr) );
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf))==NULL) {
@@ -83,8 +87,18 @@ int main(int argc, char *argv[])
 	ethhdr->ether_type = ntohs(ETHERTYPE_ARP);
 	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_dhost[i] = '\xff';
 	for(int j=0;j<ETH_ALEN;j++) ethhdr->ether_shost[j] = mac[j];
-
-
-
+	
+	/* ARP packet */
+	arpheader = (struct arpheader *)(packet+14);
+	arpheader->htype = ntohs(ETHERNET);
+	arpheader->ptype = ntohs(ETHERTYPE_IP);
+	arpheader->hlen = 6;
+	arpheader->plen = 4;
+	arpheader->oper = ntohs(ARP_REQUEST);
+	memcpy(arpheader->sha, mac, 6);
+	// Sender IP address
+	memcpy(arpheader->tha, "\x00\x00\x00\x00\x00\x00",6);
+	// Target ip address
+	
 	return 0;
 }
