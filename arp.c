@@ -29,9 +29,9 @@ typedef struct arpheader {
     uint8_t hlen;              /* Hardware Address Length */ 
     uint8_t plen;      	       /* Protocol Address Length */ 
     uint16_t oper;	       /* Operation Code          */ 
-    unsigned char sha[6];      /* Sender hardware address */ 
+    uint8_t sha[6];            /* Sender hardware address */ 
     uint32_t spa;              /* Sender IP address       */ 
-    unsigned char tha[6];      /* Target hardware address */ 
+    uint8_t tha[6];            /* Target hardware address */ 
     uint32_t tpa;              /* Target IP address       */ 
 } __attribute__((packed)) arphdr_t; 
 
@@ -71,7 +71,6 @@ int main(int argc, char *argv[])
 	/* Copy the interface name in the ifreq structure */
 	strncpy(ifr.ifr_name , dev , IFNAMSIZ-1);
 	if(ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) perror("ioctl fail");
-	close(fd);
 
 	memcpy(attacker_mac, ifr.ifr_hwaddr.sa_data, 6);
 
@@ -79,9 +78,11 @@ int main(int argc, char *argv[])
 	//printf("Mac : %s:%s:%s:%s:%s:%s\n" , attacker_mac[0], attacker_mac[1], attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
  
 	/* Display ip address */
-	attacker_ip = ((struct sockaddr_in *)&ifr.ifr_addr )->sin_addr.s_addr;
-	// printf("%s : %s\n" , dev , attacker_ip );
-	//attacker_ip = (((struct sockaddr_in *)&ifr.ifr_addr )->sin_addr.s_addr);
+	ioctl(fd, SIOCGIFADDR, &ifr);
+	close(fd);
+	attacker_ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+	printf("%s : %s\n" , dev , attacker_ip );
+
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf))==NULL) {
@@ -103,7 +104,7 @@ int main(int argc, char *argv[])
 	arpheader->plen = sizeof(arpheader->spa);
 	arpheader->oper = ntohs(ARP_REQUEST);
 	memcpy(arpheader->sha, attacker_mac, 6);
-	arpheader->spa = attacker_ip;
+	arpheader->spa = inet_addr(attacker_ip);
 	memcpy(arpheader->tha, "\x00\x00\x00\x00\x00\x00",6);
 	arpheader->tpa = inet_addr(sender_ip);
 
