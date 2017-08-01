@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 	int fd;
 	struct ifreq ifr;
 	unsigned char attacker_mac[6];
-	uint32_t *attacker_ip;
+	const char *attacker_ip;
 	char *dev, *sender_ip, *target_ip;
 	
 	pcap_t *handle;
@@ -53,6 +53,9 @@ int main(int argc, char *argv[])
 	char packet[100];
 
 	arphdr_t *arpheader = NULL;
+
+	struct ether_header *reply_eth;
+	struct arphdr_t *reply_arp;
 
 	if (argc != 4) {
 		printf("input needed: <dev> <sender_ip> <target_ip> \n");
@@ -81,8 +84,6 @@ int main(int argc, char *argv[])
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 	attacker_ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
-	printf("%s : %s\n" , dev , attacker_ip );
-
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf))==NULL) {
