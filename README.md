@@ -25,4 +25,19 @@ sudo ./arp ens33 192.168.242.147 8.8.8.8
 ```
 
 ### Result
+```
+============= Send ARP =============
+******* get attacker's info *******
+attacker MAC 0:c:29:53:b3:dd 
+attacker IP  192.168.242.180
+******** get sender's info ********
+sender MAC   0:c:29:48:20:4c 
+sender IP    192.168.242.147
+****** send infected packet *******
+src MAC      0:c:29:53:b3:dd 
+src IP       8.8.8.8
+dst MAC      0:c:29:48:20:4c 
+dst IP       192.168.242.147
+====================================
+```
 
