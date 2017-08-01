@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 {
 	int fd;
 	struct ifreq ifr;
-	unsigned char *attacker_mac;
-	u_int32_t *attacker_ip;
+	unsigned char *attacker_mac[6];
+	uint32_t *attacker_ip;
 	char *dev, *sender_ip, *target_ip;
 	
 	pcap_t *handle;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	arphdr_t *arpheader = NULL;
 
 	if (argc != 4) {
-		printf("input needed: 1. dev 2. sender_ip 3. target_ip \n");
+		printf("input needed: <dev> <sender_ip> <target_ip> \n");
 		exit(1);
 	}
 
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 
-	memcpy(attacker_mac, (unsigned char *)ifr.ifr_hwaddr.sa_data,6);
+	memcpy(attacker_mac, (unsigned char *)ifr.ifr_hwaddr.sa_data, 6);
 
 	/* Display mac address */
 	//printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , attacker_mac[0], attacker_mac[1], attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
