@@ -24,26 +24,30 @@
 #define ARP_REQUEST 1   /* ARP Request             */ 
 #define ARP_REPLY 2     /* ARP Reply               */ 
 typedef struct arpheader { 
-    u_int16_t htype;    /* Hardware Type           */ 
-    u_int16_t ptype;    /* Protocol Type           */ 
-    u_char hlen;        /* Hardware Address Length */ 
-    u_char plen;        /* Protocol Address Length */ 
-    u_int16_t oper;     /* Operation Code          */ 
-    u_char sha[6];      /* Sender hardware address */ 
-    u_char spa[4];      /* Sender IP address       */ 
-    u_char tha[6];      /* Target hardware address */ 
-    u_char tpa[4];      /* Target IP address       */ 
-} arphdr_t; 
+    uint16_t htype;    /* Hardware Type           */ 
+    uint16_t ptype;    /* Protocol Type           */ 
+    uint8_t hlen;        /* Hardware Address Length */ 
+    uint8_t plen;        /* Protocol Address Length */ 
+    uint16_t oper;     /* Operation Code          */ 
+    unsigned char sha[6];      /* Sender hardware address */ 
+    uint32_t spa;      /* Sender IP address       */ 
+    unsigned char tha[6];      /* Target hardware address */ 
+    uint32_t tpa;      /* Target IP address       */ 
+} __attribute__((packed)) arphdr_t; 
 
 int main(int argc, char *argv[])
 {
 	int fd;
 	struct ifreq ifr;
-	unsigned char *attacker_mac, *attacker_ip;
+	unsigned char *attacker_mac;
+	u_int32_t *attacker_ip;
 	char *dev, *sender_ip, *target_ip;
 	
 	pcap_t *handle;
 	char errbuf[PCAP_ERRBUF_SIZE];
+	int res;
+	struct pcap_pkthdr *header;
+	const u_char *reply_data;
 
 	struct ether_header *ethhdr;
 	char packet[100];
@@ -68,14 +72,15 @@ int main(int argc, char *argv[])
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 
-	attacker_mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+	memcpy(attacker_mac, (unsigned char *)ifr.ifr_hwaddr.sa_data,6);
 
 	/* Display mac address */
-	printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , attacker_mac[0], attacker_mac[1], 			attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
+	//printf("Mac : %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n" , attacker_mac[0], attacker_mac[1], attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
  
 	/* Display ip address */
-	attacker_ip = inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr);
-	printf("%s : %s\n" , dev , attacker_ip );
+	attacker_ip = ((struct sockaddr_in *)&ifr.ifr_addr )->sin_addr.s_addr;
+	// printf("%s : %s\n" , dev , attacker_ip );
+	//attacker_ip = (((struct sockaddr_in *)&ifr.ifr_addr )->sin_addr.s_addr);
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf))==NULL) {
@@ -97,9 +102,9 @@ int main(int argc, char *argv[])
 	arpheader->plen = 4;
 	arpheader->oper = ntohs(ARP_REQUEST);
 	memcpy(arpheader->sha, attacker_mac, 6);
-	memcpy(arpheader->spa, attacker_ip, 4);
+	arpheader->spa = attacker_ip;
 	memcpy(arpheader->tha, "\x00\x00\x00\x00\x00\x00",6);
-	memcpy(arpheader->tpa, sender_ip, 4);
+	arpheader->tpa = inet_addr(sender_ip);
 
 	/* Send ARP request */
 	pcap_sendpacket(handle, packet, 42);	
@@ -110,5 +115,16 @@ int main(int argc, char *argv[])
 	 * with p as an argument to fetch or display the error text.
 	 */
 
+	/* Get ARP reply */
+	while(1) {
+		res = pcap_next_ex(handle, &header, &reply_data);
+		if(res < 0) exit(1);
+		else if(res == 0); //pcap_sendpacket(handle, packet, 42);	
+
+	}	
+
+	/* Close handle */
+	pcap_close(handle);
+	
 	return 0;
 }
