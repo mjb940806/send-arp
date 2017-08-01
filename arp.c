@@ -23,6 +23,8 @@
 #define ETHERNET 1
 #define ARP_REQUEST 1          /* ARP Request             */ 
 #define ARP_REPLY 2            /* ARP Reply               */ 
+#define ARP_SIZE 42	       /* ARP Packet Size 	  */
+#define ETHER_HLEN 14	       /* ethernet header size    */
 typedef struct arpheader { 
     uint16_t htype;            /* Hardware Type           */ 
     uint16_t ptype;            /* Protocol Type           */ 
@@ -47,7 +49,7 @@ int main(int argc, char *argv[])
 	char errbuf[PCAP_ERRBUF_SIZE];
 	int res;
 	struct pcap_pkthdr *header;
-	const u_char *reply_data;
+	const u_char *reply_packet;
 
 	struct ether_header *ethhdr;
 	char packet[100];
@@ -55,7 +57,8 @@ int main(int argc, char *argv[])
 	arphdr_t *arpheader = NULL;
 
 	struct ether_header *reply_eth;
-	struct arphdr_t *reply_arp;
+	arphdr_t *reply_arp;
+	unsigned char sender_mac[6]; 
 
 	if (argc != 4) {
 		printf("input needed: <dev> <sender_ip> <target_ip> \n");
@@ -69,18 +72,13 @@ int main(int argc, char *argv[])
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(fd < 0) perror("socket fail");
 
-	/* Type of address to retrieve - IPv4 IP address */
-	//ifr.ifr_addr.sa_family = AF_INET;
 	/* Copy the interface name in the ifreq structure */
 	strncpy(ifr.ifr_name , dev , IFNAMSIZ-1);
 	if(ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) perror("ioctl fail");
 
 	memcpy(attacker_mac, ifr.ifr_hwaddr.sa_data, 6);
-
-	/* Display mac address */
-	//printf("Mac : %s:%s:%s:%s:%s:%s\n" , attacker_mac[0], attacker_mac[1], attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]);
  
-	/* Display ip address */
+	/* Get ip address */
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 	attacker_ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
@@ -110,7 +108,7 @@ int main(int argc, char *argv[])
 	arpheader->tpa = inet_addr(sender_ip);
 
 	/* Send ARP request */
-	pcap_sendpacket(handle, packet, 42);	
+	pcap_sendpacket(handle, packet, ARP_SIZE);	
 	/* int pcap_sendpacket(pcap_t *p, const u_char *buf, int size);
 	 * sends a raw packet through the network interface.
 	 * returns 0 on success and -1 on failure.
@@ -120,10 +118,22 @@ int main(int argc, char *argv[])
 
 	/* Get ARP reply */
 	while(1) {
-		res = pcap_next_ex(handle, &header, &reply_data);
+		res = pcap_next_ex(handle, &header, &reply_packet);
 		if(res < 0) exit(1);
-		else if(res == 0); //pcap_sendpacket(handle, packet, 42);	
+		else if(res == 0) {
+			if(pcap_sendpacket(handle, packet, ARP_SIZE)) {
+                		exit(1);
+           		}
+			continue;
+		}
 
+		reply_eth = (struct ether_header *)reply_packet;
+		if(reply_eth->ether_type != htons(ETHERTYPE_ARP)) continue;
+		
+		reply_arp = (struct arphdr_t *)(reply_packet + ETHER_HLEN);	
+		// error handling
+		
+		memcpy(sender_mac, reply_arp->sha, 6);
 	}	
 
 	/* Close handle */
