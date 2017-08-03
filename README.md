@@ -18,10 +18,10 @@ C
 
 ### Compile & Execute
 ```
-gcc -o arp arp.c -lpcap
+$ gcc -o arp arp.c -lpcap
 ```
 ```
-sudo ./arp ens33 192.168.242.147 8.8.8.8
+$ sudo ./arp ens33 192.168.242.147 8.8.8.8
 ```
 
 ### Result
